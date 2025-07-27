@@ -1,0 +1,5 @@
+# В telegram-bot/.gitignore
+.env
+venv/
+__pycache__/
+*.pyc
