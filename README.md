@@ -1,1 +1,1 @@
-# serv-api.github.io
+# privateseo.github.io
