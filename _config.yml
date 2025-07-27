@@ -1,0 +1,31 @@
+paginate: 6
+paginate_path: "/news/page:num/"
+
+title: "Частный SEO специалист и Web-разработчик"
+description: "Создание, поддержка и продвижение сайтов"
+url: "https://privseo.ru"
+author: "Данильченко Роберт"
+
+socials:
+  - name: "Telegram"
+    url: "https://t.me/robDaNilov"
+    icon: "telegram.webp"
+  - name: "WhatsApp"
+    url: "https://wa.me/79607918623"
+    icon: "whatsapp.webp"
+  - name: "Microsoft Teams"
+    url: "https://teams.microsoft.com/l/chat/0/0?users=DanilovRob@ya.ru"
+    icon: "microsoft.webp"
+
+collections:
+  categories:
+    output: true
+    permalink: /category/:path/
+
+plugins:
+  - jekyll-sitemap
+  - jekyll-seo-tag
+# Исключает файлы из обработки Jekyll (они не попадут и в sitemap)
+exclude:
+  - "yandex_*.html"
+  - "tools/*"
