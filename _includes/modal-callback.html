@@ -1,0 +1,20 @@
+<div class="modal" id="callback-modal">
+  <div class="modal__content">
+    <button class="modal__close" aria-label="Закрыть модальное окно">&times;</button>
+    <h3 class="modal__title">Заказать звонок</h3>
+    <form class="form" id="callback-form" method="post">
+      <div class="form__group">
+        <input type="text" class="form__input" id="callback-name" name="name" required placeholder=" ">
+        <label for="callback-name" class="form__label">Ваше имя</label>
+      </div>
+      
+      <div class="form__group">
+        <input type="tel" class="form__input" id="callback-phone" name="phone" required placeholder=" ">
+        <label for="callback-phone" class="form__label">Телефон</label>
+      </div>
+      
+      <input type="hidden" name="form_type" value="callback">
+      <button type="submit" class="button button--primary form__button">Заказать звонок</button>
+    </form>
+  </div>
+</div>
