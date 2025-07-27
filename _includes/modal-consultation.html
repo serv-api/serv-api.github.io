@@ -1,0 +1,21 @@
+<div class="modal" id="consultation-modal">
+  <div class="modal__content">
+    <button class="modal__close">&times;</button>
+    <h3 class="modal__title">Получить консультацию</h3>
+    <form class="form" id="consultation-form">
+      <input type="hidden" name="form_type" value="Консультация">
+      
+      <div class="form__group">
+        <input type="text" class="form__input" name="name" required placeholder=" ">
+        <label class="form__label">Ваше имя</label>
+      </div>
+      
+      <div class="form__group">
+        <input type="tel" class="form__input" name="phone" required placeholder=" ">
+        <label class="form__label">Телефон</label>
+      </div>
+      
+      <button type="submit" class="button button--primary">Отправить</button>
+    </form>
+  </div>
+</div>
