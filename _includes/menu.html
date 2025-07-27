@@ -1,0 +1,13 @@
+<nav class="header__nav nav" itemscope itemtype="http://schema.org/SiteNavigationElement">
+  <button class="nav__toggle" aria-label="Меню">
+    <span class="nav__toggle-line"></span>
+  </button>
+  
+  <ul class="nav__list">
+    {% for item in site.data.menu.items %}
+    <li class="nav__item">
+      <a href="{{ item.url }}" class="nav__link" itemprop="url">{{ item.title }}</a>
+    </li>
+    {% endfor %}
+  </ul>
+</nav>
