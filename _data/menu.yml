@@ -1,0 +1,13 @@
+items:
+- title: Главная
+  url: https://privseo.ru/#hero
+- title: Обо мне
+  url: https://privseo.ru/#about
+- title: Услуги
+  url: https://privseo.ru/#services
+- title: Портфолио
+  url: https://privseo.ru/#portfolio
+- title: Отзывы
+  url: https://privseo.ru/#reviews
+- title: Контакты
+  url: https://privseo.ru/#contact
