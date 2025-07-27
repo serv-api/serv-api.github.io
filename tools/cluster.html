@@ -1,0 +1,1071 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Гибкая кластеризация фраз</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/vis-network@9.1.2/dist/vis-network.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.14.0/Sortable.min.js"></script>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+    textarea, input {
+      width: 100%;
+      padding: 8px;
+      margin-bottom: 10px;
+      border: 1px solid #ddd;
+    }
+    button {
+      padding: 10px 15px;
+      background: #4CAF50;
+      color: white;
+      border: none;
+      cursor: pointer;
+      margin-right: 10px;
+      margin-bottom: 10px;
+    }
+    .tab {
+      display: flex;
+      border-bottom: 1px solid #ccc;
+    }
+    .tab button {
+      border-radius: 5px 5px 0 0;
+    }
+    .tabcontent {
+      display: none;
+      padding: 20px 0;
+    }
+    .tabcontent.active {
+      display: block;
+    }
+    .cluster {
+      margin: 15px 0;
+      padding: 15px;
+      border: 1px solid #ddd;
+      border-radius: 5px;
+      background: #f9f9f9;
+    }
+    .manual-cluster {
+      background: #fff8e1;
+    }
+    .unclustered {
+      background: #f5f5f5;
+      padding: 15px;
+      border-radius: 5px;
+      margin-top: 20px;
+    }
+    .phrase {
+      display: inline-block;
+      margin: 5px;
+      padding: 8px 12px;
+      background: #e3f2fd;
+      border-radius: 4px;
+      cursor: move;
+    }
+    .unclustered-phrase {
+      display: inline-block;
+      margin: 5px;
+      padding: 8px 12px;
+      background: #ffebee;
+      border-radius: 4px;
+      cursor: move;
+      position: relative;
+    }
+    .unclustered-phrase-remove {
+      position: absolute;
+      top: -5px;
+      right: -5px;
+      background: #ff5722;
+      color: white;
+      border-radius: 50%;
+      width: 16px;
+      height: 16px;
+      font-size: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+    }
+    .cluster-title {
+      font-weight: bold;
+      margin-bottom: 10px;
+      color: #333;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      cursor: pointer;
+    }
+    .delete-btn {
+      background: #ff5722;
+      padding: 2px 8px;
+      font-size: 12px;
+    }
+    .add-btn {
+      background: #2196F3;
+    }
+    #graph {
+      width: 100%;
+      height: 500px;
+      border: 1px solid #ddd;
+      margin-top: 20px;
+    }
+    .controls {
+      margin: 20px 0;
+    }
+    #manual-clusters-setup {
+      margin-top: 20px;
+    }
+    .loader {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(255, 255, 255, 0.8);
+      z-index: 1000;
+      justify-content: center;
+      align-items: center;
+      flex-direction: column;
+    }
+    .loader-spinner {
+      border: 5px solid #f3f3f3;
+      border-top: 5px solid #4CAF50;
+      border-radius: 50%;
+      width: 50px;
+      height: 50px;
+      animation: spin 1s linear infinite;
+    }
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+    .cluster-config {
+      margin-bottom: 15px;
+      padding: 10px;
+      border: 1px solid #eee;
+      border-radius: 5px;
+    }
+    .config-row {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 10px;
+    }
+    .config-row input {
+      flex: 1;
+    }
+    .unclustered-title {
+      font-weight: bold;
+      margin-bottom: 10px;
+      color: #d32f2f;
+    }
+    #clusters-container {
+      min-height: 100px;
+    }
+    .ghost {
+      opacity: 0.5;
+      background: #c8ebfb;
+    }
+    .cluster-settings {
+      margin-top: 10px;
+      padding: 10px;
+      background: #f0f0f0;
+      border-radius: 5px;
+      display: none;
+    }
+    .cluster.expanded .cluster-settings {
+      display: block;
+    }
+    .edit-btn {
+      background: #FFC107;
+      padding: 2px 8px;
+      font-size: 12px;
+      margin-left: 5px;
+      display: none;
+    }
+    .cluster.expanded .edit-btn {
+      display: inline-block;
+    }
+    .drag-handle {
+      cursor: move;
+      margin-right: 10px;
+      padding: 0 5px;
+    }
+    .word-tag {
+      display: inline-flex;
+      align-items: center;
+      background: #e3f2fd;
+      padding: 4px 8px;
+      border-radius: 4px;
+      margin: 2px;
+    }
+    .word-tag-remove {
+      margin-left: 5px;
+      cursor: pointer;
+      color: #ff5722;
+      font-weight: bold;
+    }
+    .words-container {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      margin-top: 5px;
+    }
+    .words-input-container {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 5px;
+      padding: 5px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+    }
+    .word-input {
+      flex: 1;
+      min-width: 100px;
+      border: none;
+      outline: none;
+      padding: 5px;
+    }
+    .toggle-btn {
+      background: #4CAF50;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      width: 24px;
+      height: 24px;
+      font-size: 14px;
+      cursor: pointer;
+      margin-right: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .phrases-container {
+      display: none;
+    }
+    .cluster.expanded .phrases-container {
+      display: block;
+    }
+  </style>
+</head>
+<body>
+  <div id="loader" class="loader">
+    <div class="loader-spinner"></div>
+    <p id="loader-text">Обработка данных...</p>
+  </div>
+
+  <h1>Гибкая кластеризация фраз</h1>
+  
+  <div class="tab">
+    <button class="tablinks active" onclick="openTab('setup')">Настройка</button>
+    <button class="tablinks" onclick="openTab('result')">Результат</button>
+    <button class="tablinks" onclick="openTab('graph')">Граф связей</button>
+  </div>
+  
+  <div id="setup" class="tabcontent active">
+    <h3>1. Введите фразы (каждая с новой строки):</h3>
+    <textarea id="phrases" rows="8">
+коллинеарные антенны
+коллинеарные дипольные антенны
+коллинеарная антенна купить
+мачта
+мачта антенная
+мачта тренога
+гибкий кабель
+коаксиальный кабель
+стальная мачта
+телескопическая мачта
+купить мачту антенную
+цена на мачту</textarea>
+    
+    <h3>2. Настройте кластеры:</h3>
+    <div id="manual-clusters-setup">
+      <div class="cluster-config">
+        <div class="config-row">
+          <input type="text" placeholder="Название кластера" value="Коллинеарные антенны">
+          <button class="delete-btn" onclick="deleteCluster(this)">×</button>
+        </div>
+        <div class="config-row">
+          <div class="words-input-container" id="keywords-input-0">
+            <input type="text" class="word-input" placeholder="Ключевые слова" onkeydown="handleKeywordInput(event, 0)">
+          </div>
+        </div>
+        <div class="config-row">
+          <div class="words-input-container" id="stopwords-input-0">
+            <input type="text" class="word-input" placeholder="Стоп-слова" onkeydown="handleStopwordInput(event, 0)">
+          </div>
+        </div>
+      </div>
+    </div>
+    <button class="add-btn" onclick="addManualCluster()">+ Добавить кластер</button>
+    
+    <div class="controls">
+      <button onclick="runClustering()">Запустить кластеризацию</button>
+    </div>
+  </div>
+  
+  <div id="result" class="tabcontent">
+    <h3>Результат кластеризации</h3>
+    
+    <div id="clusters-container">
+      <!-- Сюда будут добавляться кластеры -->
+    </div>
+    
+    <div class="controls">
+      <button onclick="exportToExcel()">Экспорт в Excel</button>
+      <button class="add-btn" onclick="addNewClusterFromResults()">+ Новый кластер</button>
+    </div>
+    
+    <div id="unclustered-container" class="unclustered">
+      <div class="unclustered-title">Не распределенные фразы:</div>
+      <div id="unclustered-phrases"></div>
+    </div>
+  </div>
+  
+  <div id="graph" class="tabcontent">
+    <div id="network"></div>
+  </div>
+
+  <script>
+    let allPhrases = [];
+    let clusters = [];
+    let unclusteredPhrases = [];
+    let useStemming = true;
+    let processing = false;
+    let expandedClusterId = null; // По умолчанию все кластеры закрыты
+    let settingsVisible = {}; // Состояние видимости настроек для каждого кластера
+    
+    // Добавление ручного кластера в настройках
+    function addManualCluster() {
+      const id = document.querySelectorAll('.cluster-config').length;
+      const html = `
+        <div class="cluster-config">
+          <div class="config-row">
+            <input type="text" placeholder="Название кластера">
+            <button class="delete-btn" onclick="deleteCluster(this)">×</button>
+          </div>
+          <div class="config-row">
+            <div class="words-input-container" id="keywords-input-${id}">
+              <input type="text" class="word-input" placeholder="Ключевые слова" onkeydown="handleKeywordInput(event, ${id})">
+            </div>
+          </div>
+          <div class="config-row">
+            <div class="words-input-container" id="stopwords-input-${id}">
+              <input type="text" class="word-input" placeholder="Стоп-слова" onkeydown="handleStopwordInput(event, ${id})">
+            </div>
+          </div>
+        </div>
+      `;
+      document.getElementById('manual-clusters-setup').insertAdjacentHTML('beforeend', html);
+    }
+    
+    function deleteCluster(btn) {
+      if (document.querySelectorAll('.cluster-config').length > 1) {
+        btn.closest('.cluster-config').remove();
+      } else {
+        alert('Должен остаться хотя бы один кластер');
+      }
+    }
+    
+    // Обработка ввода ключевых слов
+    function handleKeywordInput(e, clusterId) {
+      if (e.key === 'Enter' || e.key === ',') {
+        e.preventDefault();
+        const input = e.target;
+        const value = input.value.trim();
+        if (value) {
+          addKeywordTag(clusterId, value);
+          input.value = '';
+          updateClusterFromTags(clusterId);
+          input.focus();
+        }
+      }
+    }
+    
+    // Обработка ввода стоп-слов
+    function handleStopwordInput(e, clusterId) {
+      if (e.key === 'Enter' || e.key === ',') {
+        e.preventDefault();
+        const input = e.target;
+        const value = input.value.trim();
+        if (value) {
+          addStopwordTag(clusterId, value);
+          input.value = '';
+          updateClusterFromTags(clusterId);
+          input.focus();
+        }
+      }
+    }
+    
+    // Добавление тега ключевого слова
+    function addKeywordTag(clusterId, word) {
+      const container = document.getElementById(`keywords-input-${clusterId}`);
+      const tag = document.createElement('div');
+      tag.className = 'word-tag';
+      tag.innerHTML = `
+        ${word}
+        <span class="word-tag-remove" onclick="removeKeywordTag(${clusterId}, this)">×</span>
+      `;
+      container.insertBefore(tag, container.querySelector('.word-input'));
+    }
+    
+    // Добавление тега стоп-слова
+    function addStopwordTag(clusterId, word) {
+      const container = document.getElementById(`stopwords-input-${clusterId}`);
+      const tag = document.createElement('div');
+      tag.className = 'word-tag';
+      tag.innerHTML = `
+        ${word}
+        <span class="word-tag-remove" onclick="removeStopwordTag(${clusterId}, this)">×</span>
+      `;
+      container.insertBefore(tag, container.querySelector('.word-input'));
+    }
+    
+    // Удаление тега ключевого слова
+    function removeKeywordTag(clusterId, element) {
+      const input = element.closest('.words-input-container').querySelector('.word-input');
+      element.parentElement.remove();
+      updateClusterFromTags(clusterId);
+      input.focus();
+    }
+    
+    // Удаление тега стоп-слова
+    function removeStopwordTag(clusterId, element) {
+      const input = element.closest('.words-input-container').querySelector('.word-input');
+      element.parentElement.remove();
+      updateClusterFromTags(clusterId);
+      input.focus();
+    }
+    
+    // Обновление кластера из тегов
+    async function updateClusterFromTags(clusterId) {
+      showLoader('Обновление кластера...');
+      await delay(100);
+      
+      const keywords = Array.from(document.querySelectorAll(`#keywords-input-${clusterId} .word-tag`))
+        .map(el => el.textContent.trim().replace('×', '').trim());
+      
+      const stopWords = Array.from(document.querySelectorAll(`#stopwords-input-${clusterId} .word-tag`))
+        .map(el => el.textContent.trim().replace('×', '').trim());
+      
+      if (clusters[clusterId]) {
+        clusters[clusterId].keywords = keywords;
+        clusters[clusterId].stopWords = stopWords;
+        await reapplyCluster(clusterId);
+      }
+      
+      hideLoader();
+    }
+    
+    // Стемминг слова
+    function stemWord(word) {
+      if (!useStemming) return word.toLowerCase();
+      
+      const rules = [
+        { suffix: 'ые', cut: 2 }, { suffix: 'ой', cut: 2 },
+        { suffix: 'ая', cut: 2 }, { suffix: 'ов', cut: 2 },
+        { suffix: 'ам', cut: 2 }, { suffix: 'ями', cut: 3 },
+        { suffix: 'и', cut: 1 }, { suffix: 'ь', cut: 1 },
+        { suffix: 'ей', cut: 2 }, { suffix: 'ый', cut: 2 }
+      ];
+      
+      word = word.toLowerCase();
+      for (const rule of rules) {
+        if (word.endsWith(rule.suffix)) {
+          return word.slice(0, -rule.cut);
+        }
+      }
+      return word;
+    }
+    
+    // Проверка на соответствие кластеру
+    function matchCluster(phrase, keywords, stopWords) {
+      const phraseWords = phrase.split(/\s+/).map(stemWord);
+      const keywordStems = keywords.map(stemWord);
+      const stopWordStems = stopWords.map(stemWord);
+      
+      if (stopWordStems.some(sw => 
+        phraseWords.some(pw => pw.includes(sw))
+      )) {
+        return false;
+      }
+      
+      return keywordStems.every(kw => 
+        phraseWords.some(pw => pw.includes(kw))
+      );
+    }
+    
+    // Запуск кластеризации
+    async function runClustering() {
+      if (processing) return;
+      processing = true;
+      showLoader('Обработка данных...');
+      
+      try {
+        allPhrases = document.getElementById('phrases').value.split('\n').filter(p => p.trim());
+        clusters = [];
+        unclusteredPhrases = [...allPhrases];
+        settingsVisible = {}; // Сбрасываем состояние настроек
+
+        await processManualClusters();
+        updateUnclusteredPhrases();
+        renderFinalClusters();
+        drawGraph();
+        openTab('result');
+      } catch (error) {
+        console.error('Ошибка кластеризации:', error);
+        alert('Произошла ошибка при обработке данных');
+      } finally {
+        hideLoader();
+        processing = false;
+      }
+    }
+    
+    // Обработка ручных кластеров
+    async function processManualClusters() {
+      document.querySelectorAll('#manual-clusters-setup .cluster-config').forEach((clusterEl, i) => {
+        const nameInput = clusterEl.querySelector('input[type="text"]');
+        const name = nameInput.value || 'Ручной кластер';
+        
+        const keywords = Array.from(clusterEl.querySelectorAll('#keywords-input-' + i + ' .word-tag'))
+          .map(el => el.textContent.trim().replace('×', '').trim());
+        
+        const stopWords = Array.from(clusterEl.querySelectorAll('#stopwords-input-' + i + ' .word-tag'))
+          .map(el => el.textContent.trim().replace('×', '').trim());
+        
+        if (keywords.length > 0) {
+          const matchedPhrases = [];
+          const newUnclustered = [];
+          
+          unclusteredPhrases.forEach(phrase => {
+            if (matchCluster(phrase, keywords, stopWords)) {
+              matchedPhrases.push(phrase);
+            } else {
+              newUnclustered.push(phrase);
+            }
+          });
+          
+          if (matchedPhrases.length > 0) {
+            clusters.push({
+              name: name,
+              keywords: keywords,
+              stopWords: stopWords,
+              phrases: matchedPhrases
+            });
+            unclusteredPhrases = newUnclustered;
+            settingsVisible[i] = true; // По умолчанию настройки открыты для новых кластеров
+          }
+        }
+      });
+      
+      await delay(10);
+    }
+    
+    // Обновление списка нераспределенных фраз
+    function updateUnclusteredPhrases() {
+      const container = document.getElementById('unclustered-phrases');
+      container.innerHTML = '';
+      
+      if (unclusteredPhrases.length > 0) {
+        document.getElementById('unclustered-container').style.display = 'block';
+        unclusteredPhrases.forEach((phrase, index) => {
+          const phraseEl = document.createElement('span');
+          phraseEl.className = 'unclustered-phrase';
+          phraseEl.textContent = phrase;
+          phraseEl.dataset.index = index;
+          
+          const removeBtn = document.createElement('span');
+          removeBtn.className = 'unclustered-phrase-remove';
+          removeBtn.innerHTML = '×';
+          removeBtn.onclick = (e) => {
+            e.stopPropagation();
+            removeUnclusteredPhrase(index);
+          };
+          
+          phraseEl.appendChild(removeBtn);
+          container.appendChild(phraseEl);
+        });
+      } else {
+        document.getElementById('unclustered-container').style.display = 'none';
+      }
+      
+      initSortableUnclustered();
+    }
+    
+    // Удаление нераспределенной фразы
+    function removeUnclusteredPhrase(index) {
+      unclusteredPhrases.splice(index, 1);
+      updateUnclusteredPhrases();
+    }
+    
+    // Рендер финальных кластеров
+    function renderFinalClusters() {
+      const container = document.getElementById('clusters-container');
+      container.innerHTML = '';
+      
+      clusters.forEach((cluster, i) => {
+        const isExpanded = expandedClusterId === i;
+        const showSettings = isExpanded && settingsVisible[i];
+        
+        const clusterHTML = `
+          <div class="cluster manual-cluster ${isExpanded ? 'expanded' : ''}" data-id="${i}">
+            <div class="cluster-title" onclick="event.stopPropagation(); toggleClusterExpanded(${i})">
+              <button class="toggle-btn" onclick="event.stopPropagation(); toggleClusterExpanded(${i})">${isExpanded ? '−' : '+'}</button>
+              <span class="drag-handle">☰</span>
+              <input type="text" value="${cluster.name}" onchange="updateClusterName(${i}, this.value)">
+              ${isExpanded ? `<button class="edit-btn" onclick="event.stopPropagation(); toggleClusterSettings(${i})">✎</button>` : ''}
+              <button class="delete-btn" onclick="event.stopPropagation(); deleteFinalCluster(${i})">×</button>
+            </div>
+            <div class="cluster-settings" style="display: ${showSettings ? 'block' : 'none'}">
+              <div class="config-row">
+                <div class="words-input-container" id="result-keywords-input-${i}">
+                  ${cluster.keywords.map(kw => `
+                    <div class="word-tag">
+                      ${kw}
+                      <span class="word-tag-remove" onclick="removeResultKeywordTag(${i}, this)">×</span>
+                    </div>
+                  `).join('')}
+                  <input type="text" class="word-input" placeholder="Ключевые слова" 
+                    onkeydown="handleResultKeywordInput(event, ${i})" onblur="reapplyCluster(${i})">
+                </div>
+              </div>
+              <div class="config-row">
+                <div class="words-input-container" id="result-stopwords-input-${i}">
+                  ${cluster.stopWords.map(sw => `
+                    <div class="word-tag">
+                      ${sw}
+                      <span class="word-tag-remove" onclick="removeResultStopwordTag(${i}, this)">×</span>
+                    </div>
+                  `).join('')}
+                  <input type="text" class="word-input" placeholder="Стоп-слова" 
+                    onkeydown="handleResultStopwordInput(event, ${i})" onblur="reapplyCluster(${i})">
+                </div>
+              </div>
+            </div>
+            <div class="phrases-container" id="cluster-${i}">
+              ${cluster.phrases.map(p => `<div class="phrase">${p}</div>`).join('')}
+            </div>
+          </div>
+        `;
+        container.insertAdjacentHTML('beforeend', clusterHTML);
+        
+        initSortableCluster(i);
+      });
+      
+      initSortableClustersContainer();
+      updateUnclusteredPhrases();
+    }
+    
+    // Переключение состояния развернутости кластера
+    function toggleClusterExpanded(clusterId) {
+      const clusterEl = document.querySelector(`.cluster[data-id="${clusterId}"]`);
+      const isExpanded = clusterEl.classList.contains('expanded');
+      
+      // Сворачиваем все кластеры
+      document.querySelectorAll('.cluster').forEach(el => {
+        el.classList.remove('expanded');
+      });
+      
+      // Разворачиваем текущий, если он был свернут
+      if (!isExpanded) {
+        clusterEl.classList.add('expanded');
+        expandedClusterId = clusterId;
+        // При первом открытии показываем настройки
+        if (settingsVisible[clusterId] === undefined) {
+          settingsVisible[clusterId] = true;
+        }
+      } else {
+        expandedClusterId = null;
+      }
+      
+      // Обновляем отображение
+      renderFinalClusters();
+    }
+    
+    // Переключение отображения настроек кластера
+    function toggleClusterSettings(clusterId) {
+      settingsVisible[clusterId] = !settingsVisible[clusterId];
+      renderFinalClusters();
+    }
+    
+    // Обработка ввода ключевых слов в результатах
+    function handleResultKeywordInput(e, clusterId) {
+      if (e.key === 'Enter' || e.key === ',') {
+        e.preventDefault();
+        const input = e.target;
+        const value = input.value.trim();
+        if (value) {
+          clusters[clusterId].keywords.push(value);
+          input.value = '';
+          showLoader('Обновление кластера...');
+          setTimeout(() => {
+            reapplyCluster(clusterId);
+            hideLoader();
+            // Разворачиваем кластер и фокусируемся на поле ввода
+            expandedClusterId = clusterId;
+            settingsVisible[clusterId] = true;
+            renderFinalClusters();
+            document.querySelector(`#result-keywords-input-${clusterId} .word-input`).focus();
+          }, 100);
+        }
+      }
+    }
+    
+    // Обработка ввода стоп-слов в результатах
+    function handleResultStopwordInput(e, clusterId) {
+      if (e.key === 'Enter' || e.key === ',') {
+        e.preventDefault();
+        const input = e.target;
+        const value = input.value.trim();
+        if (value) {
+          clusters[clusterId].stopWords.push(value);
+          input.value = '';
+          showLoader('Обновление кластера...');
+          setTimeout(() => {
+            reapplyCluster(clusterId);
+            hideLoader();
+            // Разворачиваем кластер и фокусируемся на поле ввода
+            expandedClusterId = clusterId;
+            settingsVisible[clusterId] = true;
+            renderFinalClusters();
+            document.querySelector(`#result-stopwords-input-${clusterId} .word-input`).focus();
+          }, 100);
+        }
+      }
+    }
+    
+    // Удаление ключевого слова в результатах
+    function removeResultKeywordTag(clusterId, element) {
+      const input = element.closest('.words-input-container').querySelector('.word-input');
+      const word = element.parentElement.textContent.trim().replace('×', '').trim();
+      clusters[clusterId].keywords = clusters[clusterId].keywords.filter(kw => kw !== word);
+      showLoader('Обновление кластера...');
+      setTimeout(() => {
+        reapplyCluster(clusterId);
+        hideLoader();
+        // Разворачиваем кластер и фокусируемся на поле ввода
+        expandedClusterId = clusterId;
+        settingsVisible[clusterId] = true;
+        renderFinalClusters();
+        document.querySelector(`#result-keywords-input-${clusterId} .word-input`).focus();
+      }, 100);
+    }
+    
+    // Удаление стоп-слова в результатах
+    function removeResultStopwordTag(clusterId, element) {
+      const input = element.closest('.words-input-container').querySelector('.word-input');
+      const word = element.parentElement.textContent.trim().replace('×', '').trim();
+      clusters[clusterId].stopWords = clusters[clusterId].stopWords.filter(sw => sw !== word);
+      showLoader('Обновление кластера...');
+      setTimeout(() => {
+        reapplyCluster(clusterId);
+        hideLoader();
+        // Разворачиваем кластер и фокусируемся на поле ввода
+        expandedClusterId = clusterId;
+        settingsVisible[clusterId] = true;
+        renderFinalClusters();
+        document.querySelector(`#result-stopwords-input-${clusterId} .word-input`).focus();
+      }, 100);
+    }
+    
+    // Добавление нового кластера из результатов
+    function addNewClusterFromResults() {
+      const name = prompt('Название нового кластера:', 'Новый кластер');
+      if (name) {
+        const newId = clusters.length;
+        clusters.push({
+          name: name,
+          keywords: [],
+          stopWords: [],
+          phrases: []
+        });
+        settingsVisible[newId] = true; // Настройки открыты по умолчанию для нового кластера
+        
+        // Устанавливаем новый кластер как открытый и закрываем все остальные
+        expandedClusterId = newId;
+        
+        renderFinalClusters();
+        // Фокусируемся на поле ввода ключевых слов
+        document.querySelector(`#result-keywords-input-${newId} .word-input`).focus();
+      }
+    }
+    
+    // Инициализация Sortable для контейнера кластеров
+    function initSortableClustersContainer() {
+      new Sortable(document.getElementById('clusters-container'), {
+        group: 'clusters',
+        animation: 150,
+        handle: '.drag-handle',
+        ghostClass: 'ghost',
+        onEnd: function() {
+          const newClusters = [];
+          document.querySelectorAll('#clusters-container .cluster').forEach(clusterEl => {
+            const id = parseInt(clusterEl.dataset.id);
+            newClusters.push(clusters[id]);
+          });
+          clusters = newClusters;
+        }
+      });
+    }
+    
+    // Инициализация Sortable для кластера
+    function initSortableCluster(clusterId) {
+      new Sortable(document.getElementById(`cluster-${clusterId}`), {
+        group: {
+          name: 'phrases',
+          put: ['phrases', 'unclustered']
+        },
+        animation: 150,
+        onEnd: function(evt) {
+          updateClustersFromDOM();
+        }
+      });
+    }
+    
+    // Инициализация Sortable для нераспределенных фраз
+    function initSortableUnclustered() {
+      new Sortable(document.getElementById('unclustered-phrases'), {
+        group: {
+          name: 'unclustered',
+          put: ['phrases']
+        },
+        animation: 150,
+        onEnd: function(evt) {
+          updateClustersFromDOM();
+        }
+      });
+    }
+    
+    // Повторное применение настроек кластера
+    async function reapplyCluster(clusterId) {
+      const cluster = clusters[clusterId];
+      const newPhrases = [];
+      const removedPhrases = [];
+      
+      cluster.phrases.forEach(phrase => {
+        if (matchCluster(phrase, cluster.keywords, cluster.stopWords)) {
+          newPhrases.push(phrase);
+        } else {
+          removedPhrases.push(phrase);
+        }
+      });
+      
+      const newUnclustered = [];
+      unclusteredPhrases.forEach(phrase => {
+        if (matchCluster(phrase, cluster.keywords, cluster.stopWords)) {
+          newPhrases.push(phrase);
+        } else {
+          newUnclustered.push(phrase);
+        }
+      });
+      
+      clusters[clusterId].phrases = newPhrases;
+      unclusteredPhrases = [...removedPhrases, ...newUnclustered];
+      
+      renderFinalClusters();
+      drawGraph();
+      
+      // Восстанавливаем состояние открытого кластера
+      if (expandedClusterId !== null) {
+        document.querySelector(`.cluster[data-id="${expandedClusterId}"]`).classList.add('expanded');
+      }
+    }
+    
+    // Визуализация графа связей
+    function drawGraph() {
+      const container = document.getElementById('network');
+      const nodes = [];
+      const edges = [];
+      
+      clusters.forEach((cluster, i) => {
+        nodes.push({
+          id: i,
+          label: cluster.name,
+          shape: 'box',
+          color: '#FFEE58'
+        });
+      });
+      
+      if (unclusteredPhrases.length > 0) {
+        nodes.push({
+          id: 'unclustered',
+          label: `Не распределено (${unclusteredPhrases.length})`,
+          shape: 'box',
+          color: '#E0E0E0'
+        });
+      }
+      
+      for (let i = 0; i < clusters.length; i++) {
+        for (let j = i + 1; j < clusters.length; j++) {
+          let commonWords = 0;
+          
+          const sampleI = getRandomSample(clusters[i].phrases, 3);
+          const sampleJ = getRandomSample(clusters[j].phrases, 3);
+          
+          for (const phrase1 of sampleI) {
+            for (const phrase2 of sampleJ) {
+              const words1 = phrase1.split(/\s+/);
+              const words2 = phrase2.split(/\s+/);
+              commonWords += words1.filter(w => words2.includes(w)).length;
+            }
+          }
+          
+          if (commonWords > 0) {
+            edges.push({
+              from: i,
+              to: j,
+              label: commonWords.toString(),
+              width: Math.min(commonWords, 5)
+            });
+          }
+        }
+      }
+      
+      const data = { nodes: new vis.DataSet(nodes), edges: new vis.DataSet(edges) };
+      const options = {
+        physics: { enabled: true },
+        nodes: { 
+          font: { size: 14 },
+          margin: 10
+        },
+        edges: { 
+          smooth: true,
+          font: { size: 12 },
+          arrows: { to: { enabled: false } }
+        },
+        layout: {
+          improvedLayout: true
+        }
+      };
+      
+      new vis.Network(container, data, options);
+    }
+    
+    // Обновление кластеров после перетаскивания
+    function updateClustersFromDOM() {
+      const newClusters = [];
+      const newUnclustered = [];
+      
+      document.querySelectorAll('#clusters-container .cluster').forEach(clusterEl => {
+        const id = clusterEl.dataset.id;
+        const name = clusterEl.querySelector('.cluster-title input').value;
+        const phrases = Array.from(clusterEl.querySelectorAll('.phrases-container .phrase')).map(p => p.textContent);
+        
+        newClusters.push({
+          name: name,
+          keywords: clusters[id].keywords,
+          stopWords: clusters[id].stopWords,
+          phrases: phrases
+        });
+      });
+      
+      document.querySelectorAll('#unclustered-phrases .unclustered-phrase').forEach(phraseEl => {
+        newUnclustered.push(phraseEl.textContent);
+      });
+      
+      clusters = newClusters;
+      unclusteredPhrases = newUnclustered;
+      
+      if (document.getElementById('graph').style.display === 'block') {
+        drawGraph();
+      }
+    }
+    
+    function updateClusterName(index, newName) {
+      clusters[index].name = newName;
+      if (document.getElementById('graph').style.display === 'block') {
+        drawGraph();
+      }
+    }
+    
+    function deleteFinalCluster(index) {
+      if (confirm('Удалить этот кластер? Все фразы будут перемещены в нераспределенные.')) {
+        unclusteredPhrases = [...unclusteredPhrases, ...clusters[index].phrases];
+        clusters.splice(index, 1);
+        
+        // Если удалили открытый кластер, сбрасываем expandedClusterId
+        if (expandedClusterId === index) {
+          expandedClusterId = null;
+          settingsVisible = {}; // Сбрасываем состояние настроек
+        } else if (expandedClusterId > index) {
+          expandedClusterId--; // Корректируем индекс, если удалили кластер перед открытым
+        }
+        
+        renderFinalClusters();
+        drawGraph();
+      }
+    }
+    
+    // Экспорт в Excel
+    function exportToExcel() {
+      const wb = XLSX.utils.book_new();
+      
+      // Добавляем листы для каждого кластера
+      clusters.forEach(cluster => {
+        const wsData = cluster.phrases.map(phrase => ({ 'Фраза': phrase }));
+        const ws = XLSX.utils.json_to_sheet(wsData);
+        XLSX.utils.book_append_sheet(wb, ws, cluster.name.substring(0, 31));
+      });
+      
+      // Добавляем лист для нераспределенных фраз
+      if (unclusteredPhrases.length > 0) {
+        const wsData = unclusteredPhrases.map(phrase => ({ 'Фраза': phrase }));
+        const ws = XLSX.utils.json_to_sheet(wsData);
+        XLSX.utils.book_append_sheet(wb, ws, 'Не распределено');
+      }
+      
+      XLSX.writeFile(wb, 'кластеризация.xlsx');
+    }
+    
+    // Вспомогательные функции
+    function getRandomSample(array, size) {
+      const shuffled = [...array].sort(() => 0.5 - Math.random());
+      return shuffled.slice(0, size);
+    }
+    
+    function delay(ms) {
+      return new Promise(resolve => setTimeout(resolve, ms));
+    }
+    
+    function showLoader(text) {
+      const loader = document.getElementById('loader');
+      document.getElementById('loader-text').textContent = text;
+      loader.style.display = 'flex';
+    }
+    
+    function hideLoader() {
+      document.getElementById('loader').style.display = 'none';
+    }
+    
+    // Переключение вкладок
+    function openTab(tabName) {
+      document.querySelectorAll('.tabcontent').forEach(tab => tab.classList.remove('active'));
+      document.querySelectorAll('.tablinks').forEach(btn => btn.classList.remove('active'));
+      
+      document.getElementById(tabName).classList.add('active');
+      document.querySelector(`.tab button[onclick="openTab('${tabName}')"]`).classList.add('active');
+      
+      if (tabName === 'graph' && (clusters.length > 0 || unclusteredPhrases.length > 0)) {
+        drawGraph();
+      }
+    }
+    
+    // Инициализация
+    document.addEventListener('DOMContentLoaded', () => {
+      addManualCluster();
+      
+      const initialKeywords = ['коллинеарные', 'антенны'];
+      const initialStopwords = ['купить', 'цена'];
+      
+      initialKeywords.forEach(kw => addKeywordTag(0, kw));
+      initialStopwords.forEach(sw => addStopwordTag(0, sw));
+    });
+  </script>
+</body>
+</html>
