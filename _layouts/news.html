@@ -1,0 +1,46 @@
+---
+layout: default
+---
+
+<article class="news-article" itemscope itemtype="http://schema.org/NewsArticle">
+  <header class="article-header">
+    <div class="container">
+      <div class="article-meta">
+        <time datetime="{{ page.date | date_to_xmlschema }}" itemprop="datePublished">{{ page.date | date: "%d.%m.%Y" }}</time>
+        <span class="article-category">
+          <a href="/category/{{ page.category }}/" itemprop="articleSection">{{ site.data.categories[page.category] }}</a>
+        </span>
+      </div>
+      
+      <h1 class="article-title" itemprop="headline">{{ page.name }}</h1>
+      
+      {% if page.image %}
+        <div class="article-image" itemprop="image" itemscope itemtype="http://schema.org/ImageObject">
+          <img src="{{ page.image }}" alt="{{ page.name }}" itemprop="url">
+          <meta itemprop="width" content="1200">
+          <meta itemprop="height" content="630">
+        </div>
+      {% endif %}
+    </div>
+  </header>
+  
+  <div class="article-content container" itemprop="articleBody">
+    <div class="news-lead" itemprop="description">
+      {{ page.description }}
+    </div>
+    
+    <div class="article-text">
+      {{ content }}
+    </div>
+    
+    <div class="article-footer">
+      <div class="article-tags">
+        {% for tag in page.tags %}
+          <a href="/tag/{{ tag }}/" class="tag">{{ tag }}</a>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+</article>
+
+{% include comments.html %}
